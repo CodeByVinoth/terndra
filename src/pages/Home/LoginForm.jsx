@@ -3,6 +3,7 @@ import GoogleLogo from "../../assets/google.png";
 import LoginBg from "../../assets/login.png";
 import axios from "axios";
 import { TravelContext } from "../../pages/vehicle/TravelContext";
+import { useGoogleLogin } from '@react-oauth/google';
 
 const LoginForm = ({ onClose }) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -26,62 +27,106 @@ const LoginForm = ({ onClose }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleSignIn = async (e) => {
-  e.preventDefault();
-  setError(null);
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    setError(null);
 
-  try {
-    const response = await axios.post(`${backendUrl}/users/signin`, {
-      email: formData.email,
-      password: formData.password,
-    });
+    try {
+      const response = await axios.post(`${backendUrl}/users/signin`, {
+        email: formData.email,
+        password: formData.password,
+      });
 
-    if (response.data.success) {
-      setToken(response.data.token);
-      localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user)); // ✅ store user info
-      onClose();
-    } else {
-      setError("Login failed. " + response.data.message);
+      if (response.data.success) {
+        setToken(response.data.token);
+        localStorage.setItem("token", response.data.token);
+        localStorage.setItem("user", JSON.stringify(response.data.user));
+        onClose();
+      } else {
+        setError("Login failed. " + response.data.message);
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An error occurred. Please try again.");
     }
-  } catch (err) {
-    console.error("Login error:", err);
-    setError("An error occurred. Please try again.");
-  }
-};
+  };
 
-const handleSignUp = async (e) => {
-  e.preventDefault();
-  setError(null);
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setError(null);
 
-  if (formData.password !== formData.confirmPassword) {
-    setError("Passwords do not match.");
-    return;
-  }
-
-  try {
-    const response = await axios.post(`${backendUrl}/users/signup`, {
-      name: formData.name,
-      email: formData.email,
-      password: formData.password,
-    });
-
-    if (response.status === 201) {
-      alert("Account created successfully! Please sign in.");
-      setIsSignUp(false);
-      setFormData({ name: "", email: "", password: "", confirmPassword: "" });
-    } else {
-      setError("Sign-up failed. " + response.data.error);
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
     }
-  } catch (err) {
-    console.error("Sign-up error:", err);
-    if (err.response && err.response.data.error === "Email already registered") {
-      setError("This email is already registered. Please sign in or use a different email.");
-    } else {
-      setError("An error occurred during sign-up. Please try again.");
+
+    try {
+      const response = await axios.post(`${backendUrl}/users/signup`, {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response.status === 201) {
+        alert("Account created successfully! Please sign in.");
+        setIsSignUp(false);
+        setFormData({ name: "", email: "", password: "", confirmPassword: "" });
+      } else {
+        setError("Sign-up failed. " + response.data.error);
+      }
+    } catch (err) {
+      console.error("Sign-up error:", err);
+      if (err.response && err.response.data.error === "Email already registered") {
+        setError("This email is already registered. Please sign in or use a different email.");
+      } else {
+        setError("An error occurred during sign-up. Please try again.");
+      }
     }
-  }
-};
+  };
+
+  // 🆕 Google Login Hook
+  const googleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        const res = await axios.get(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          {
+            headers: {
+              'Authorization': `Bearer ${tokenResponse.access_token}`
+            }
+          }
+        );
+
+        // Here, send the user data to your backend for authentication/registration
+        const googleUserData = res.data;
+        console.log('User info from Google:', googleUserData);
+
+        // Determine if it's a sign-in or sign-up request to your backend
+        // This is a crucial step to handle Google-based authentication on your server
+        const backendResponse = await axios.post(`${backendUrl}/users/google-auth`, {
+          email: googleUserData.email,
+          name: googleUserData.name,
+          googleId: googleUserData.sub,
+        });
+
+        if (backendResponse.data.success) {
+          setToken(backendResponse.data.token);
+          localStorage.setItem("token", backendResponse.data.token);
+          localStorage.setItem("user", JSON.stringify(backendResponse.data.user));
+          onClose();
+        } else {
+          setError("Google authentication failed.");
+        }
+      } catch (error) {
+        console.error('Error during Google sign-in:', error);
+        setError("An error occurred during Google sign-in. Please try again.");
+      }
+    },
+    onError: errorResponse => {
+      console.log('Google Sign-In Failed:', errorResponse);
+      setError('Google Sign-In Failed. Please try again.');
+    },
+  });
 
   return (
     <div
@@ -159,8 +204,10 @@ const handleSignUp = async (e) => {
               {isSignUp ? (
                 <form className="flex flex-col items-center justify-center text-center" onSubmit={handleSignUp}>
                   <h1 className="font-bold text-3xl mb-4">Create Account</h1>
+                  {/* 🆕 Google Sign-Up Button */}
                   <button
                     type="button"
+                    onClick={() => googleLogin()}
                     className="flex items-center justify-center w-full border border-gray-300 rounded-lg py-3 my-2 hover:bg-gray-100 transition"
                   >
                     <img src={GoogleLogo} alt="Google Logo" className="w-6 h-6 mr-2" />
@@ -214,8 +261,10 @@ const handleSignUp = async (e) => {
               ) : (
                 <form className="flex flex-col items-center justify-center text-center" onSubmit={handleSignIn}>
                   <h1 className="font-bold text-3xl mb-4">Sign In</h1>
+                  {/* 🆕 Google Sign-In Button */}
                   <button
                     type="button"
+                    onClick={() => googleLogin()}
                     className="flex items-center justify-center w-full border border-gray-300 rounded-lg py-3 my-2 hover:bg-gray-100 transition"
                   >
                     <img src={GoogleLogo} alt="Google Logo" className="w-6 h-6 mr-2" />
@@ -268,8 +317,10 @@ const handleSignUp = async (e) => {
               >
                 <form className="bg-white flex flex-col items-center justify-center px-8 sm:px-14 h-full text-center" onSubmit={handleSignUp}>
                   <h1 className="font-bold text-3xl">Create Account</h1>
+                  {/* 🆕 Google Sign-Up Button */}
                   <button
                     type="button"
+                    onClick={() => googleLogin()}
                     className="flex items-center justify-center w-[300px] border border-gray-300 rounded-lg py-2 my-4 hover:bg-gray-100 transition"
                   >
                     <img src={GoogleLogo} alt="Google Logo" className="w-8 h-8 mr-2" />
@@ -327,8 +378,10 @@ const handleSignUp = async (e) => {
               >
                 <form className="bg-white flex flex-col items-center justify-center px-8 sm:px-14 h-full text-center" onSubmit={handleSignIn}>
                   <h1 className="font-bold text-3xl">Sign In</h1>
+                  {/* 🆕 Google Sign-In Button */}
                   <button
                     type="button"
+                    onClick={() => googleLogin()}
                     className="flex items-center justify-center w-[300px] border border-gray-300 rounded-lg py-2 my-4 hover:bg-gray-100 transition"
                   >
                     <img src={GoogleLogo} alt="Google Logo" className="w-8 h-8 mr-2" />

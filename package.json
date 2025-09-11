@@ -10,12 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.12.2",
     "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
     "express-fileupload": "^1.5.2",
     "express-session": "^1.18.2",
     "framer-motion": "^12.23.12",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.344.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",

@@ -1,11 +1,10 @@
 import React, { useContext } from "react";
 import { TravelContext } from "./TravelContext";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
 import { assets } from "../../assets/assets.js";
 
-const TravelsItem = ({ name, image, price, comfort, seats, id }) => {
+// Accepts onVehicleSelect as a prop
+const TravelsItem = ({ name, image, price, comfort, seats, id, onVehicleSelect }) => {
   const { currency } = useContext(TravelContext);
-  const navigate = useNavigate(); // Initialize useNavigate
 
   const comfortImages = {
     'Hatchback': assets.comfort_hatchback,
@@ -18,14 +17,14 @@ const TravelsItem = ({ name, image, price, comfort, seats, id }) => {
   const comfortImage = comfortImages[comfort] || assets.comfort_default;
 
   const handleClick = () => {
-    // Navigate to the vehicle details page using the vehicle's ID
-    navigate(`/vehicle/${id}`);
+    // Call the function passed from the parent with the vehicle's ID
+    onVehicleSelect(id);
   };
 
   return (
     <div
       className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer"
-      onClick={handleClick} // Add the click handler here
+      onClick={handleClick} // This handles the click event
     >
       <div className="relative w-full aspect-w-16  aspect-h-9 p-24 px-20">
         <img
@@ -42,8 +41,7 @@ const TravelsItem = ({ name, image, price, comfort, seats, id }) => {
             <span className='flex items-center justify-center'>. {seats} seats</span>
           </span>
           <span className="font-semibold text-gray-900">
-            {currency}
-            {price} <span className="text-xs text-gray-500">/hour</span>
+            {currency} {price}/hr
           </span>
         </div>
       </div>

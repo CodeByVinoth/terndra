@@ -44,6 +44,7 @@ const UserProfile = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [profileImage, setProfileImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
+  const [passwordError, setPasswordError] = useState(null); // New state for password validation error
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,8 +53,8 @@ const UserProfile = () => {
     if (storedUser && storedToken) {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
-      setEditUser(parsedUser);
-
+      setEditUser({ ...parsedUser, newPassword: "", confirmPassword: "" }); // Add new password fields
+      
       const userPhone = parsedUser.phone || "";
       const prefixMatch = countryCodes.find((c) => userPhone.startsWith(c.code));
       if (prefixMatch) {
@@ -114,6 +115,22 @@ const UserProfile = () => {
 
   const handleSave = async () => {
     setLoading(true);
+    setPasswordError(null);
+
+    // 🆕 Validate passwords if they are being updated
+    if (editUser.newPassword || editUser.confirmPassword) {
+      if (editUser.newPassword !== editUser.confirmPassword) {
+        setPasswordError("Passwords do not match.");
+        setLoading(false);
+        return;
+      }
+      if (editUser.newPassword.length < 6) { // Add password length validation
+        setPasswordError("Password must be at least 6 characters long.");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("No authentication token found.");
@@ -131,6 +148,11 @@ const UserProfile = () => {
         profileImage: imageUrl,
       };
 
+      // 🆕 Add the new password to the payload if it's set
+      if (editUser.newPassword) {
+        payload.password = editUser.newPassword;
+      }
+
       const response = await axios.put(
         `http://localhost:8000/users/update/${user._id}`,
         payload,
@@ -145,6 +167,8 @@ const UserProfile = () => {
         localStorage.setItem("user", JSON.stringify(updatedUserData));
         toast.success("Profile updated successfully!");
         setIsEditing(false);
+        // 🆕 Clear password fields after successful save
+        setEditUser({ ...updatedUserData, newPassword: "", confirmPassword: "" });
       }
     } catch (err) {
       console.error(err);
@@ -165,9 +189,10 @@ const UserProfile = () => {
       setPhonePrefix("+91");
       setPhoneNumber(userPhone);
     }
-    setEditUser(user);
+    setEditUser({ ...user, newPassword: "", confirmPassword: "" });
     setProfileImage(null);
     setPreviewImage(user.profileImage);
+    setPasswordError(null);
   };
 
   return (
@@ -175,7 +200,7 @@ const UserProfile = () => {
       <Toaster position="top-center" reverseOrder={false} />
       <header className="relative w-full py-20 px-4 text-center bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg">
         {/* Updated Profile Picture with Image Upload Button */}
-        <div className="relative w-60 h-60 mx-auto mb-4 rounded-full border-4 border-white bg-blue-400 flex items-center justify-center text-5xl font-bold overflow-hidden group">
+        <div className="relative w-60 h-60 mx-auto mb-4 rounded-full border-4 border-white bg-blue-400 flex items-center justify-center text-xl font-bold overflow-hidden group">
           {previewImage ? (
             <img src={previewImage} alt="Profile" className="w-full h-full object-cover" />
           ) : (
@@ -185,7 +210,7 @@ const UserProfile = () => {
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 transition-opacity duration-200 opacity-0 group-hover:opacity-100 rounded-full">
               <label
                 htmlFor="profileImage"
-                className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 rounded-full shadow-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                className="flex   items-center gap-2 px-4 py-2 bg-transparent text-indigo-600 rounded-full shadow-lg cursor-pointer hover:bg-gray-100 transition-colors"
               >
                 <ImageIcon size={20} />
                 Change Image
@@ -314,6 +339,38 @@ const UserProfile = () => {
                 </div>
               )}
             </div>
+            {/* 🆕 New Password fields */}
+            {isEditing && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-600">New Password</label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={editUser.newPassword}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-600">Confirm Password</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={editUser.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Confirm new password"
+                    autoComplete="new-password"
+                  />
+                  {passwordError && (
+                    <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </section>
         <section className="bg-white p-8 rounded-lg shadow-md">
